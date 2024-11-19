@@ -19,7 +19,7 @@ class ChildVariant():
         self.property_name = "Variant_" + variant_name
         self.DNP = False
 
-        self.Sch_List = Schematic_List
+        self.Sch_List = Schematic_List  # this is bad practice... probably
 
         # Check that this variant is already listed on the schematic part properties
         self.__AddSymbolProperties()
@@ -118,8 +118,6 @@ class ChildVariant():
 class Variants():
     '''
         Contains information for all variants in a project.
-
-
     '''
 
     def __init__(self, Project_Schematics : list[str] = None):
@@ -137,11 +135,10 @@ class Variants():
 
         else:
             for path in Project_Schematics:
-                    self.Sch_List(skip.Schematic(path))
+                self.Sch_List.append(skip.Schematic(path))
 
         # Add Base Variant - apply actively displayed DNP
-        self.Add_Variant("BASE")
-        self.Variant_List[0].PushDisplayedDNPtoVariant(self.Sch_List)
+        self.Load_Existing_Variants()
 
         pass
 
@@ -153,7 +150,7 @@ class Variants():
         '''
 
         keyword = "Variant_"            # We will look for this keyword in the symbol properties
-        VaraintsFound : set[str] = []   # Reminder - Sets Only allows unique elements
+        VaraintsFound = set()             # Reminder - Sets Only allows unique elements
 
         IssueFoundFlag = False          # Very generic flag, just means the len(VariantsFound) wasn't the same for all the parts
 
@@ -164,7 +161,7 @@ class Variants():
         # Use random symbol to generate VariantsFound SET
         for property in self.Sch_List[0].symbol[0].property:
             if str(property.name).__contains__(keyword):
-                 VaraintsFound.add(property.name)
+                 VaraintsFound.add(str(property.name).replace(keyword, ""))
 
         # check all schematics in the project
         for Schematic in self.Sch_List:
@@ -181,7 +178,8 @@ class Variants():
                     # Find variant properties ex:"Variant_BASE"
                     if str(property.name).__contains__(keyword):
                         NumVariantsFound += 1
-                        VaraintsFound.add(property.name)
+
+                        VaraintsFound.add(str(property.name).replace(keyword, ""))
 
                 # Determine if this part was (A) missing a varaint, or (B) had a variant that didn't exist before
                 if NumVariantsBefore != len(VaraintsFound):
@@ -204,6 +202,9 @@ class Variants():
             @ param - variant_name. Name that will be assigned to the variant object
         '''
 
+        if( variant_name.__contains__("Variant")):
+            raise Exception("Variant name must not contain the word variant... variant name should be something simple like 'BASE'")
+
         variant = ChildVariant(variant_name, self.Sch_List)
         self.Variant_List.append(variant)
         pass
@@ -217,6 +218,14 @@ class Variants():
         self.Variant_List.remove(variant_name)
         return
 
+    def SAVE(self):
+        for sch in self.Sch_List:
+            sch.write(sch.filepath)
+            pass
+
+    def PushDisplayedDNPtoVariant(self, variant_name : str):
+        self.__Get_Variant(variant_name).PushDisplayedDNPtoVariant()
+        return
 
     def __Get_Variant(self, variant_name:str) -> ChildVariant:
         '''
