@@ -147,7 +147,7 @@ class Variants():
     # TODO - Add autosave feature w/ suggestions on when to reload kicad
     def __init__(self, Project_Schematics : list[str] = None, AutoSavePrompt = True):
         '''
-            @ param - Schematics. List of paths to schematics in the project.\n
+            @ param - ScheProject_Schematics -List of paths to schematics in the project. Set to none if you'd like to provide project dir\n
                     - If no paths are provided this constructor tries to find schematics based on working DIR\n
             @ param - AutoSavePrompt\n
                     - True, User will be asked if they want to save after every applicable method\n
@@ -164,13 +164,19 @@ class Variants():
 
         if Project_Schematics == None:
             if( input("No path provided using -> " + os.getcwd() +" (y/n)") == "y"):
-                self.__AutoPopulateSchPaths( os.getcwd() )
+                self.__AutoPopulateSchPaths( os.getcwd() )  # Use working directory
             else:
-                raise Exception("Error - Must provide paths")
+                self.__AutoPopulateSchPaths( input("Project Directory -> ").strip().replace(" ", "") ) #use 
 
         else:
-            for path in Project_Schematics:
-                self.Sch_List.append(skip.Schematic(path))
+            # User likely provided project directory see if there's schematics in it
+            if( os.path.isdir(Project_Schematics[0]) ):
+                self.__AutoPopulateSchPaths( Project_Schematics[0] )
+
+            # Else user provided a list of schematic paths
+            else:
+                for path in Project_Schematics:
+                    self.Sch_List.append(skip.Schematic(path))
 
         # Add Base Variant - apply actively displayed DNP
         self.__Load_Existing_Variants()
@@ -401,9 +407,9 @@ class Variants():
            self.__AutoPopulateSchPaths( input("Invalid path please enter new path: ").strip() )
 
         # Find folder contains (.kicad_sch)
-        for file in os.listdir():
+        for file in os.listdir(search_path):
             if file.__contains__(file_ext):
-                path_list.append(file)
+                path_list.append(os.path.join(search_path, file))
 
         # Check if any found
         if len(path_list) == 0:
