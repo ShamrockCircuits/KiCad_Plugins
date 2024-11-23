@@ -1,3 +1,7 @@
+# hacky hack to use local version of kicad-skip
+import sys
+sys.path.append('D:\\WS_projects\\GITHUB\\kicad-skip\\src')
+
 import skip
 from enum import Enum
 from typing import List
@@ -50,13 +54,12 @@ class ChildVariant():
         '''
             Removes this variant from the schematic. 
         '''
-        print(">> RemoveVariantFromSchematic() - method currently not implemented, not sure if possible to delete property")
 
         for Schematic in self.Sch_List:
             for part in Schematic.symbol:
                 
                 if self.property_name in part.property:
-                    # var = part.property[self.property_name].delete()
+                    var = part.property[self.property_name].delete()
                     pass
 
         return
@@ -125,13 +128,15 @@ class Variants():
             @ param - Schematics. List of paths to schematics in the project.
                     - If no paths are provided this constructor tries to find schematics based on working DIR
         '''
-
+        self.Paths = Project_Schematics
         self.Sch_List : List['skip.Schematic'] = []
         self.Variant_List : list['ChildVariant'] = []
 
         if Project_Schematics == None:
-            print("No path provided using -> " + os.getcwd() )
-            self.__AutoPopulateSchPaths( os.getcwd() )
+            if( input("No path provided using -> " + os.getcwd() +" (y/n)") == "y"):
+                self.__AutoPopulateSchPaths( os.getcwd() )
+            else:
+                raise Exception("Error - Must provide paths")
 
         else:
             for path in Project_Schematics:
@@ -140,7 +145,26 @@ class Variants():
         # Add Base Variant - apply actively displayed DNP
         self.Load_Existing_Variants()
 
-        pass
+        return
+
+    def Reload_Schematic(self):
+        '''
+            If you made changes to the schematic and want them to be reflected in your code, you will need to reload the schematic.
+            For example, In Kicad eeschema you set the DNP's you'd like to load into the BASE variant, and save you changes.
+            We must reload the sexpressions in order to "See" this change, before we can call "PushDisplayedDNPtoVariant".
+
+            TLDR - Reloads sexpressions
+
+            BEWARE - Any changes you made will be lost unless you call "Variant.SAVE"
+        '''
+
+        print("BEWARE - Any changes you made will be lost unless you call 'Variant.SAVE()'...\n" 
+              "Variant.SAVE() will also overwrite any changes on the schematic..\n"
+              "Recommend steps --- Call Variant.SAVE() -> Make DNP changes -> Call Reload_Schematic -> continue as normal")
+
+        # I believe this will clear everything for us
+        self.__init__(self.Paths) 
+
 
     def Load_Existing_Variants(self):
         '''
@@ -205,17 +229,24 @@ class Variants():
         if( variant_name.__contains__("Variant")):
             raise Exception("Variant name must not contain the word variant... variant name should be something simple like 'BASE'")
 
+        # Check if Variant already exists
+        if self.__Get_Variant(variant_name) != None:
+            print("Warning - The variant already exists... ignoring Add_Variant Request")
+            return None
+
         variant = ChildVariant(variant_name, self.Sch_List)
         self.Variant_List.append(variant)
-        pass
+        return
 
     def Remove_Variant(self, variant_name : str):
         '''
             Tries to remove variant_name from existing variants.
             Does not check if variant exists
         '''
-        self.__Get_Variant(variant_name).RemoveVariantFromSchematic()
-        self.Variant_List.remove(variant_name)
+        var = self.__Get_Variant(variant_name)
+        if type(var) != None:
+            var.RemoveVariantFromSchematic()
+            self.Variant_List.remove(var)
         return
 
     def SAVE(self):
@@ -238,7 +269,22 @@ class Variants():
                 print("__Get_Varaint() --> Found Variant")
                 return var
         
-        print("__Get_Varaint() --> Found Variant")
+        print("__Get_Varaint() --> Not Found")
+        return None
+
+    def ListAllVariants(self):
+
+        txt = "Available Variants -> ["
+
+        if len(self.Variant_List) != 0:
+            for var in self.Variant_List:
+                txt += var.name + ", "
+        else:
+            txt+= "NONExx"  #dumb I know ;)
+        
+        # remove that last garbage ", "
+        txt = txt[:len(txt)-2] + "]"
+        print(txt)
         return None
             
     def Display_Variant(self, variant_name:str):
