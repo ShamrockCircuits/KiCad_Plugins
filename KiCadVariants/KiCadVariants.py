@@ -67,7 +67,7 @@ class ChildVariant():
 
         return
 
-    def LoadDisplayedDNPtoVariant(self):
+    def LoadDNPtoVariant(self):
         '''
         This method copies the current population (DNP) displayed on the schematic and updates THIS variant with that population.
 
@@ -151,11 +151,16 @@ class Variants():
 
         return
 
+    def SAVE(self):
+        for sch in self.Sch_List:
+            sch.write(sch.filepath)
+            pass
+
     def Reload_Schematic(self):
         '''
             If you made changes to the schematic and want them to be reflected in your code, you will need to reload the schematic.
             For example, In Kicad eeschema you set the DNP's you'd like to load into the BASE variant, and save you changes.
-            We must reload the sexpressions in order to "See" this change, before we can call "LoadDisplayedDNPtoVariant".
+            We must reload the sexpressions in order to "See" this change, before we can call "LoadDNPtoVariant".
 
             TLDR - Reloads sexpressions
 
@@ -168,6 +173,78 @@ class Variants():
 
         # I believe this will clear everything for us
         self.__init__(self.Paths) 
+         
+    def Add_Variant(self, variant_name : str):
+        '''
+            Adds variant to this project.
+            @ param - variant_name. Name that will be assigned to the variant object
+        '''
+
+        if( variant_name.__contains__("Variant")):
+            raise Exception("Variant name must not contain the word variant... variant name should be something simple like 'BASE'")
+
+        # Check if Variant already exists
+        if self.__Get_Variant(variant_name) != None:
+            print("Warning - The variant already exists... ignoring Add_Variant Request")
+            return None
+
+        variant = ChildVariant(variant_name, self.Sch_List)
+        self.Variant_List.append(variant)
+        return
+
+    def Remove_Variant(self, variant_name : str):
+        '''
+            Tries to remove variant_name from existing variants.
+            Does not check if variant exists
+        '''
+        var = self.__Get_Variant(variant_name)
+        if type(var) != None:
+            var.Remove_Variant()
+            self.Variant_List.remove(var)
+        return
+
+    def LoadDNPtoVariant(self, variant_name : str):
+        self.__Get_Variant(variant_name).LoadDNPtoVariant()
+        return
+
+    def Display_Variant(self, variant_name:str):
+        '''
+        Updates the variant that's currently displayed on the schematic
+        Script parses every symbol and checks its "Variant-xxx" property.
+        If the name matches, then it updates the DNP attribute which is then displayed on the schematic
+        '''
+        self.__Get_Variant(variant_name).DisplayThisVariant()
+
+        return
+
+    def ListAllVariants(self):
+
+        txt = "Available Variants -> ["
+
+        if len(self.Variant_List) != 0:
+            for var in self.Variant_List:
+                txt += var.name + ", "
+        else:
+            txt+= "NONExx"  #dumb I know ;)
+        
+        # remove that last garbage ", "
+        txt = txt[:len(txt)-2] + "]"
+        print(txt)
+        return None
+
+    def __Get_Variant(self, variant_name:str) -> ChildVariant:
+        '''
+            Returns variant from Variant_List of the specified name
+            @param - variant_name. Name of desired variant
+        '''
+
+        for var in self.Variant_List:
+            if var.name == variant_name:
+                print("__Get_Varaint() --> Found Variant")
+                return var
+        
+        print("__Get_Varaint() --> Not Found")
+        return None
 
     def __Load_Existing_Variants(self):
         '''
@@ -222,84 +299,7 @@ class Variants():
             self.Add_Variant(var)
 
         return
-        
-    def Add_Variant(self, variant_name : str):
-        '''
-            Adds variant to this project.
-            @ param - variant_name. Name that will be assigned to the variant object
-        '''
 
-        if( variant_name.__contains__("Variant")):
-            raise Exception("Variant name must not contain the word variant... variant name should be something simple like 'BASE'")
-
-        # Check if Variant already exists
-        if self.__Get_Variant(variant_name) != None:
-            print("Warning - The variant already exists... ignoring Add_Variant Request")
-            return None
-
-        variant = ChildVariant(variant_name, self.Sch_List)
-        self.Variant_List.append(variant)
-        return
-
-    def Remove_Variant(self, variant_name : str):
-        '''
-            Tries to remove variant_name from existing variants.
-            Does not check if variant exists
-        '''
-        var = self.__Get_Variant(variant_name)
-        if type(var) != None:
-            var.Remove_Variant()
-            self.Variant_List.remove(var)
-        return
-
-    def SAVE(self):
-        for sch in self.Sch_List:
-            sch.write(sch.filepath)
-            pass
-
-    def LoadDisplayedDNPtoVariant(self, variant_name : str):
-        self.__Get_Variant(variant_name).LoadDisplayedDNPtoVariant()
-        return
-
-    def __Get_Variant(self, variant_name:str) -> ChildVariant:
-        '''
-            Returns variant from Variant_List of the specified name
-            @param - variant_name. Name of desired variant
-        '''
-
-        for var in self.Variant_List:
-            if var.name == variant_name:
-                print("__Get_Varaint() --> Found Variant")
-                return var
-        
-        print("__Get_Varaint() --> Not Found")
-        return None
-
-    def ListAllVariants(self):
-
-        txt = "Available Variants -> ["
-
-        if len(self.Variant_List) != 0:
-            for var in self.Variant_List:
-                txt += var.name + ", "
-        else:
-            txt+= "NONExx"  #dumb I know ;)
-        
-        # remove that last garbage ", "
-        txt = txt[:len(txt)-2] + "]"
-        print(txt)
-        return None
-            
-    def Display_Variant(self, variant_name:str):
-        '''
-        Updates the variant that's currently displayed on the schematic
-        Script parses every symbol and checks its "Variant-xxx" property.
-        If the name matches, then it updates the DNP attribute which is then displayed on the schematic
-        '''
-        self.__Get_Variant(variant_name).DisplayThisVariant()
-
-        return
-    
     def __AutoPopulateSchPaths(self, search_path : str):
         '''
             Finds all schematics in "Search_path" with ext (.kicad_sch)
