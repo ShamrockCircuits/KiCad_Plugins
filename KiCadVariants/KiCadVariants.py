@@ -107,7 +107,7 @@ class ChildVariant():
 
                 
                 Variant_property = part.property[self.property_name]
-                if part.dnp:
+                if part.dnp.value:
                     Variant_property.value = self.DoNotPopulate
                 else:
                     Variant_property.value = self.Populate
@@ -133,9 +133,9 @@ class ChildVariant():
                 
                 Variant_property = part.property[self.property_name]
                 if Variant_property.value == self.Populate:
-                    part.dnp = False
+                    part.dnp.value = False
                 else:
-                    part.dnp = True
+                    part.dnp.value = True
         print(">> Display variant -> " + self.property_name)
         return
 
