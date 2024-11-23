@@ -13,10 +13,10 @@ class ChildVariant():
         Variant Class
         Contains the information for a single variant.
     '''
+    CurrentDisplayed = "_CURRENT_"  # Load the currently displayed schematic DNP
     DoNotPopulate = "DNP"
     Populate = "STUFF"
-    default_value = Populate
-
+    default_value = CurrentDisplayed
 
     def __init__(self, variant_name : str,  Schematic_List : List['skip.Schematic']):
         self.name =  variant_name.replace("Variant_", "")   # remove the Variant tag if it was already there
@@ -40,17 +40,20 @@ class ChildVariant():
         for Schematic in self.Sch_List:
             for part in Schematic.symbol:
                 
+                # Create the new property if it doesn'y exist yet
                 if self.property_name not in part.property:
                     var = part.property.Datasheet.clone() 
                     var.name = self.property_name
                     var.value = self.default_value
-                    # TODO - Figure out how to set the property to hidden, current workaround just clone a property that's already hidden
+
+                    if( self.default_value == self.CurrentDisplayed):
+                        var.value = self.DoNotPopulate if part.dnp else self.Populate 
                 else:
                     #Variant property already exists... though the name could be incorrect.
                     pass
         return
 
-    def RemoveVariantFromSchematic(self):
+    def Remove_Variant(self):
         '''
             Removes this variant from the schematic. 
         '''
@@ -64,7 +67,7 @@ class ChildVariant():
 
         return
 
-    def PushDisplayedDNPtoVariant(self):
+    def LoadDisplayedDNPtoVariant(self):
         '''
         This method copies the current population (DNP) displayed on the schematic and updates THIS variant with that population.
 
@@ -120,9 +123,10 @@ class ChildVariant():
 
 class Variants():
     '''
-        Contains information for all variants in a project.
+        Class that holds and accesses all the ChildVariant() objects in a schematic.
     '''
 
+    # TODO - Add autosave feature w/ suggestions on when to reload kicad
     def __init__(self, Project_Schematics : list[str] = None):
         '''
             @ param - Schematics. List of paths to schematics in the project.
@@ -143,7 +147,7 @@ class Variants():
                 self.Sch_List.append(skip.Schematic(path))
 
         # Add Base Variant - apply actively displayed DNP
-        self.Load_Existing_Variants()
+        self.__Load_Existing_Variants()
 
         return
 
@@ -151,7 +155,7 @@ class Variants():
         '''
             If you made changes to the schematic and want them to be reflected in your code, you will need to reload the schematic.
             For example, In Kicad eeschema you set the DNP's you'd like to load into the BASE variant, and save you changes.
-            We must reload the sexpressions in order to "See" this change, before we can call "PushDisplayedDNPtoVariant".
+            We must reload the sexpressions in order to "See" this change, before we can call "LoadDisplayedDNPtoVariant".
 
             TLDR - Reloads sexpressions
 
@@ -165,8 +169,7 @@ class Variants():
         # I believe this will clear everything for us
         self.__init__(self.Paths) 
 
-
-    def Load_Existing_Variants(self):
+    def __Load_Existing_Variants(self):
         '''
         NOTE - I don't like this method, nor how I implemented it.
         Check what variants exist on the schematic by parsing all part properties
@@ -207,11 +210,11 @@ class Variants():
 
                 # Determine if this part was (A) missing a varaint, or (B) had a variant that didn't exist before
                 if NumVariantsBefore != len(VaraintsFound):
-                    print("Load_Existing_Variants() - Found discrepancy in number of varaints... Seems like a new variant was added by " + str(part.name))
+                    print("__Load_Existing_Variants() - Found discrepancy in number of varaints... Seems like a new variant was added by " + str(part.name))
                     IssueFoundFlag = True
                 
                 if NumVariantsFound != NumVariantsBefore:
-                    print("Load_Existing_Variants() - Found discrepancy in number of varaints... Seems like this part was missing a variant " + str(part.name))   
+                    print("__Load_Existing_Variants() - Found discrepancy in number of varaints... Seems like this part was missing a variant " + str(part.name))   
                     IssueFoundFlag = True
 
         # Add Variants to our structure
@@ -245,7 +248,7 @@ class Variants():
         '''
         var = self.__Get_Variant(variant_name)
         if type(var) != None:
-            var.RemoveVariantFromSchematic()
+            var.Remove_Variant()
             self.Variant_List.remove(var)
         return
 
@@ -254,8 +257,8 @@ class Variants():
             sch.write(sch.filepath)
             pass
 
-    def PushDisplayedDNPtoVariant(self, variant_name : str):
-        self.__Get_Variant(variant_name).PushDisplayedDNPtoVariant()
+    def LoadDisplayedDNPtoVariant(self, variant_name : str):
+        self.__Get_Variant(variant_name).LoadDisplayedDNPtoVariant()
         return
 
     def __Get_Variant(self, variant_name:str) -> ChildVariant:
@@ -328,7 +331,7 @@ class Variants():
             self.Sch_List.append( skip.Schematic(file) )
 
         return
-        
+       
     def __ReloadProject(self):
         '''
             Saves then opens all .kicad_sch files.
