@@ -7,6 +7,19 @@ from enum import Enum
 from typing import List
 import os
 
+# Little txt dump on the priarie
+print("========================================================\n"
+        "==================== KiCad Variants ====================\n"
+        "========================================================\n"
+        "         !!! Backup your project before starting !!!\n"
+        "========================= DEMO =========================\n"
+        " > paths = [<path-to-sch.kicad_sch>, <path-to-sch.kicad_sch>]\n"
+        " > my_Variants = KiCadVariants.Variants(paths)\n"
+        " > my_Variants.ListAllVariants()\n"
+        " > my_Variants.Add_Variant('TEST')\n"
+        " > my_Variants.Remove_Variant('BASE')\n"
+        " > my_Variants.SAVE()\n"
+        "=======================================================\n")
 
 class ChildVariant():
     '''
@@ -119,7 +132,7 @@ class ChildVariant():
 
                 
                 Variant_property = part.property[self.property_name]
-                if Variant_property == self.Populate:
+                if Variant_property.value == self.Populate:
                     part.dnp = False
                 else:
                     part.dnp = True
@@ -132,26 +145,19 @@ class Variants():
     '''
 
     # TODO - Add autosave feature w/ suggestions on when to reload kicad
-    def __init__(self, Project_Schematics : list[str] = None):
+    def __init__(self, Project_Schematics : list[str] = None, AutoSavePrompt = True):
         '''
             @ param - Schematics. List of paths to schematics in the project.\n
                     - If no paths are provided this constructor tries to find schematics based on working DIR\n
+            @ param - AutoSavePrompt\n
+                    - True, User will be asked if they want to save after every applicable method\n
+                    - False, System will autosave w/o asking the user\n
+                    - None, Do nothing no autosave or user prompt\n
             TODO - I should probably just ask for the project directory and pull all <kicad_sch> files from there\n
                  - instead of prompting the user for all the paths... 
         '''
-        print("========================================================\n"
-              "==================== KiCad Variants ====================\n"
-              "========================================================\n"
-              "  Backup your project before starting!!!  \n"
-              "========================= DEMO =========================\n"
-              " > paths = [<path-to-sch.kicad_sch>, <path-to-sch.kicad_sch>]\n"
-              " > my_Variants = KiCadVariants.Variants(paths)\n"
-              " > my_Variants.ListAllVariants()\n"
-              " > my_Variants.Add_Variant('TEST')\n"
-              " > my_Variants.Remove_Variant('BASE')\n"
-              " > my_Variants.SAVE()\n"
-              "=======================================================\n")
 
+        self.AutoSaveFLAG = AutoSavePrompt    # prompt user when to close and open schematic... also call SAVE() whenever change is made
         self.Paths = Project_Schematics
         self.Sch_List : List['skip.Schematic'] = []
         self.Variant_List : list['ChildVariant'] = []
@@ -178,7 +184,8 @@ class Variants():
         '''
 
         for sch in self.Sch_List:
-            sch.write(sch.filepath)
+            # sch.write(sch.filepath)
+            sch.overwrite()
             pass
 
     def Reload_Schematic(self):
@@ -197,9 +204,9 @@ class Variants():
         #       "Recommend steps --- Call Variant.SAVE() -> Make DNP changes -> Call Reload_Schematic -> continue as normal")
 
         # I believe this will clear everything for us
-        self.__init__(self.Paths) 
+        self.__init__(self.Paths, AutoSavePrompt=self.AutoSaveFLAG) 
          
-    def Add_Variant(self, variant_name : str):
+    def Add_Variant(self, variant_name : str, AutoSave = True):
         '''
             Adds variant to this project. If Variant already exists, nothing is done. \n
             @ param - variant_name. Name that will be assigned to the variant object. EX: "BASE" will become "Variant_BASE"
@@ -214,10 +221,17 @@ class Variants():
             return None
 
         variant = ChildVariant(variant_name, self.Sch_List)
+        print("Created Variant --> " + variant.property_name)
         self.Variant_List.append(variant)
+
+        # Avoid spamming user with save requests when we initialize Variant class
+        if AutoSave:
+            print("Auto Saving")
+            self.__AutoSave()
+
         return
 
-    def Remove_Variant(self, variant_name : str):
+    def Remove_Variant(self, variant_name : str, AutoSave = True):
         '''
             Remove variant_name from existing variants.\n
             Note - Call SAVE() to have these changes reflected on the schematic. \n
@@ -226,6 +240,23 @@ class Variants():
         if type(var) != None:
             var.Remove_Variant()
             self.Variant_List.remove(var)
+
+        if(AutoSave):
+            self.__AutoSave()
+
+        return
+    
+    def Remove_AllVariants(self):
+        '''
+            Removes every variant property from all symbols.\n
+        '''
+        # Since we're modifying the file
+        while len(self.Variant_List) > 0:
+            print("Removing --> " + self.Variant_List[0].property_name)
+            self.Remove_Variant(self.Variant_List[0].name, AutoSave=False)
+        
+        self.__AutoSave()
+
         return
 
     def LoadDNPtoVariant(self, variant_name : str):
@@ -233,8 +264,14 @@ class Variants():
             Loads what's 'currently' displayed on the schematic into the varient you specify.\n
             NOTE - You may need to call __Reload_Schematic() if you recently changed the schematic.\n
         '''
-
+        input("Before continuing....\n"
+              "1) Save the schemtic\n"
+              "2) Close the schematic\n"
+              "3) Press *enter* to execute this method\n"
+              "4) Reopen the schematic\n")
+        self.__ReloadProject()
         self.__Get_Variant(variant_name).LoadDNPtoVariant()
+        self.__AutoSave()
         return
 
     def Display_Variant(self, variant_name:str):
@@ -244,7 +281,14 @@ class Variants():
         If the name matches, then it updates the DNP attribute which is then displayed on the schematic. \n
         NOTE - The user must call SAVE() then close and reopen the schematic editor to see the changes.
         '''
+
+        input("Before continuing....\n"
+              "1) Close the schematic (changes will be lost)\n"
+              "2) Press *enter* to execute this method\n"
+              "3) Reopen the schematic\n")
+        
         self.__Get_Variant(variant_name).DisplayThisVariant()
+        self.__AutoSave()
 
         return
 
@@ -259,7 +303,8 @@ class Variants():
             for var in self.Variant_List:
                 txt += var.name + ", "
         else:
-            txt+= "NONExx"  #dumb I know ;)
+            print(" No Variants Found ")
+            return None
         
         # remove that last garbage ", "
         txt = txt[:len(txt)-2] + "]"
@@ -336,7 +381,7 @@ class Variants():
 
         # Add Variants to our structure
         for var in VaraintsFound:
-            self.Add_Variant(var)
+            self.Add_Variant(var, AutoSave=False)
 
         return IssueFoundFlag
 
@@ -376,5 +421,19 @@ class Variants():
             Ideally this method would actually close and reopen the schematic for the user...\n
             But for now it will just prompt the user to do it. \n
         '''
-        input(">> Close and reopen schematic... *enter* to continue")
+        self.Reload_Schematic()
         return
+    
+    def __AutoSave(self):
+        if type(self.AutoSaveFLAG) != None:
+            
+            # Auto Save Prompt
+            if(self.AutoSaveFLAG):
+                if( input(">> Request to save (y/n)") == 'y'):
+                    self.SAVE()
+            # No Prompt Just Save
+            else:
+                print("SAVVVINGG!!!")
+                self.SAVE()
+
+        return None
