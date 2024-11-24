@@ -175,6 +175,7 @@ class Variants():
 
             # Else user provided a list of schematic paths
             else:
+                self.Paths = Project_Schematics
                 for path in Project_Schematics:
                     self.Sch_List.append(skip.Schematic(path))
 
@@ -419,7 +420,8 @@ class Variants():
         self.Sch_List.clear()
         for file in path_list:
             self.Sch_List.append( skip.Schematic(file) )
-
+        
+        self.Paths = path_list
         return
        
     def __ReloadProject(self):
